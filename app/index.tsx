@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 import Voice, { SpeechResultsEvent, SpeechErrorEvent } from '@react-native-voice/voice';
 import * as Speech from 'expo-speech';
 import axios from 'axios';
 
-const OPENAI_API_KEY = 'Não é uma api';
+const OPENAI_API_KEY = 'Não é uma API key';
 const SpeechToText: React.FC = () => {
   const [transcription, setTranscription] = useState<string>('');
   const [indicator, setIndicator] = useState<string>('');
   const [isListening, setIsListening] = useState<boolean>(false);
   const [response, setResponse] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Estado de carregamento
   
   useEffect(() => {
     Voice.onSpeechResults = onSpeechResults;
@@ -44,13 +45,14 @@ const SpeechToText: React.FC = () => {
       } else if (spokenText.includes('envie')) {
         setIndicator('Comando "enviar" recebido. Enviando para o ChatGPT...');
         setIsListening(false);
+        setIsLoading(true);
+        
+         // Ativa o estado de carregamento
         Voice.stop();
         setTranscription(prevTranscription => {
           sendToChatGPT(`${prevTranscription}`);
           return '';
         });
-        
-        
       } else {
         setTranscription(prevTranscription => `${prevTranscription}\n${spokenText}`);
         setIndicator('');
@@ -109,28 +111,37 @@ const SpeechToText: React.FC = () => {
       );
       const chatResponse = response.data.choices[0].message.content;
       setResponse(chatResponse);
+      Voice.stop();
       speak(chatResponse); // Fala a resposta do ChatGPT
+      startListening();
     } catch (error) {
       console.error('Erro ao enviar mensagem para o ChatGPT:', error);
       setResponse('Erro ao obter resposta do ChatGPT.');
+    } finally {
+      setIsLoading(false);
+      setIndicator('Resposta:') // Desativa o estado de carregamento
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.indicator}>
-        {indicator}
+        {indicator ? indicator : "Fale algo..."}
       </Text>
       <Text style={styles.transcription}>
-        {transcription ? transcription : 'Fale algo...'}
+        {transcription}
       </Text>
-      <TextInput
-        style={styles.responseBox}
-        multiline
-        editable={false}
-        value={response}
-        placeholder="A resposta do ChatGPT aparecerá aqui..."
-      />
+      {isLoading ? (
+        <ActivityIndicator size="large" color="#0000ff" /> // Indicador de carregamento
+      ) : (
+        <TextInput
+          style={styles.responseBox}
+          multiline
+          editable={false}
+          value={response}
+          placeholder="A resposta do ChatGPT aparecerá aqui..."
+        />
+      )}
     </View>
   );
 };
@@ -166,6 +177,7 @@ const styles = StyleSheet.create({
 });
 
 export default SpeechToText;
+
 
 
 
